@@ -1,6 +1,8 @@
-const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY
+const OPENROUTER_API_KEY = process.env.NEXT_PUBLIC_OPENROUTER_API_KEY
 
 export async function generateChatCompletion(messages: { role: string; content: string }[]) {
+  console.log("Message",messages)
+  console.log(process.env.NEXT_PUBLIC_OPENROUTER_API_KEY,"OPEN ROUTERRR")
   if (!OPENROUTER_API_KEY) {
     return "I apologize, but I'm currently running in limited mode without AI capabilities. The administrator needs to configure the OpenRouter API key to enable advanced AI features."
   }
@@ -15,7 +17,7 @@ export async function generateChatCompletion(messages: { role: string; content: 
         'X-Title': 'SiteWhisper'
       },
       body: JSON.stringify({
-        model: 'deepseek/deepseek-coder-33b-instruct',
+        model: 'deepseek/deepseek-r1',
         messages: messages,
       }),
     })
@@ -26,6 +28,7 @@ export async function generateChatCompletion(messages: { role: string; content: 
     }
 
     const data = await response.json()
+    console.log(data)
     if (!data.choices?.[0]?.message?.content) {
       throw new Error('Invalid response structure from OpenRouter API')
     }

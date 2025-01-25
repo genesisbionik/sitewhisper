@@ -39,64 +39,200 @@ export default function HomePage() {
   const [memoryBlocks, setMemoryBlocks] = useState<MemoryBlockData[]>([])
   const [availableTokens, setAvailableTokens] = useState(INITIAL_TOKENS)
   const [isUrlSubmitting, setIsUrlSubmitting] = useState(false)
+  const [selectedBlocks, setSelectedBlocks] = useState<string[]>([]);
   const { toast } = useToast()
 
-  const handleUrlSubmit = async (url: string) => {
-    console.log('Submitting URL:', url)
+  const handleBlockClick = (id: string) => {
+    setSelectedBlocks((prev) =>
+      prev.includes(id) ? prev.filter((blockId) => blockId !== id) : [...prev, id]
+    );
+  };
 
+  
+  const handleUrlSubmit = async (url: string) => {
+    console.log("Submitting URL:", url);
+  
     if (availableTokens < 10) {
       toast({
         title: "Not enough tokens",
         description: "Please purchase more tokens to continue scanning.",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
-
+  
     try {
-      setIsUrlSubmitting(true)
-      setIsLoading(true)
+      setIsUrlSubmitting(true);
+      setIsLoading(true);
       setMessages((prev) => [
         ...prev,
         { role: "user", content: `Analyzing ${url}` },
-        { role: "assistant", content: "Starting the crawl process. This may take a few moments..." }
-      ])
-
-      const response = await fetch('/api/crawl', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+        {
+          role: "assistant",
+          content: "Starting the crawl process. This may take a few moments...",
         },
-        body: JSON.stringify({ url })
-      })
+      ]);
 
-      const data = await response.json()
+      // Step 1: Get URLs from local endpoint
+      const localCrawlResponse = await fetch(
+        `http://localhost:3008/api/crawl?url=${encodeURIComponent(url)}`
+      );
+      const localCrawlData = await localCrawlResponse.json();
 
-      if (response.ok) {
-        setMemoryBlocks(data.memoryBlocks)
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "assistant",
-            content: `I've analyzed ${data.url} and created ${data.memoryBlocks.length} Whisper memory blocks. ${data.pagesCrawled} pages were crawled. You can now interact with this data or ask me questions about it.`,
+      if (!localCrawlResponse.ok) {
+        throw new Error("Failed to fetch URLs from local endpoint");
+      }
+
+      // Extract URLs from local crawl response
+      const urlsToProcess = localCrawlData.urls;
+  
+      // Step 2: Call the Crawl4AI API with the collected URLs
+      const crawlResponse = await fetch(
+        "https://crawl4ai-production.up.railway.app/crawl",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
           },
-        ])
-        setAvailableTokens((prev) => prev - 10)
-      } else {
-        throw new Error(data.error || 'Failed to crawl website')
+          body: JSON.stringify({
+            urls: urlsToProcess,
+            priority: 10,
+            magic: true,
+            config: {
+                session_id: "website_content_session",
+                cache_mode: "bypass",
+                extraction_strategy: {
+                    type: "llm",
+                    config: {
+                        task: "summarize",
+                        max_length: 10000,
+                        prompt: "Provide a concise summary of the main points and key information from this webpage. Focus on the most important details that describe what this page or site is about.",
+                        model: "gpt-3.5-turbo"  // or your preferred model
+                    }
+                }
+            },
+        }),
+        }
+      );
+  
+      const crawlData = await crawlResponse.json();
+  
+      if (!crawlResponse.ok) {
+        throw new Error(crawlData.error || "Failed to initiate crawl process");
+      }
+  
+      // Step 3: Poll the task status with improved handling
+      const { task_id } = crawlData;
+      let taskResponse;
+      let retries = 20; // Increased from 10
+      let delay = 8000;
+      
+      while (retries > 0) {
+        try {
+          taskResponse = await fetch(
+            `https://crawl4ai-production.up.railway.app/task/${task_id}`
+          );
+          const taskData = await taskResponse.json();
+          
+          console.log("Task status:", taskData.status);
+          
+          if (taskResponse.ok && taskData.status === "completed") {
+            console.log("Task RESULT:", taskData);
+
+            if (taskData.results && taskData.results.length > 0) {
+             // Combine content from all results using any type
+        const combinedContent = taskData.results.map((result: any) => 
+          result.cleaned_html || result.html || ''
+      ).join('\n\n');
+
+      // Create a single memory block with combined content
+    // Create a single memory block with cleaned content
+const singleMemoryBlock = [{
+  id: 'consolidated-block',
+  title: url,
+  content: (() => {
+      try {
+          // Parse the task data
+          const parsedData = JSON.parse(JSON.stringify(taskData));
+          
+          // If results exist, clean and extract key information
+          if (parsedData.results && parsedData.results.length > 0) {
+              const cleanedResults = parsedData.results.map((result: any) => {
+                  // Remove HTML tags, escape characters, and extract plain text
+                  const cleanContent = result.html 
+                      ? result.html.replace(/<[^>]*>/g, '')   // Remove HTML tags
+                      .replace(/\\n/g, ' ')                  // Replace line breaks
+                      .replace(/\s+/g, ' ')                  // Collapse whitespace
+                      .trim() 
+                      : '';
+                  
+                  return {
+                      url: result.url,
+                      content: cleanContent
+                  };
+              });
+              
+              return JSON.stringify(cleanedResults);
+          }
+          
+          return 'No processable content';
+      } catch (error) {
+          console.error('Content parsing error:', error);
+          return 'Content parsing failed';
+      }
+  })(),
+  type: 'whisper'
+}];
+    setMemoryBlocks(singleMemoryBlock);
+              setMessages((prev) => [
+                ...prev,
+                {
+                  role: "assistant",
+                  content: `I've analyzed ${url} and created Whisper memory blocks. The crawl process is complete.`,
+                },
+              ]);
+              setAvailableTokens((prev) => prev - 10);
+              return; // Exit successfully
+            } else {
+              throw new Error("Completed but no results found");
+            }
+          } else if (taskData.status === "failed") {
+            throw new Error(`Crawl task failed: ${taskData.error || 'Unknown error'}`);
+          } else if (taskData.status === "processing") {
+            console.log(`Task in progress, attempts remaining: ${retries}`);
+            setMessages((prev) => [
+              ...prev,
+              {
+                role: "assistant",
+                content: `Still processing... (${retries} attempts remaining)`,
+              },
+            ]);
+          }
+        } catch (error) {
+          console.error("Error polling task:", error);
+        }
+        
+        retries -= 1;
+        delay *= 1.5; // Exponential backoff
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+  
+      if (retries === 0) {
+        throw new Error("Task polling timed out - please try again");
       }
     } catch (error) {
-      console.error('Error submitting URL:', error)
+      console.error("Error submitting URL:", error);
       toast({
         title: "Submission Error",
-        description: "Failed to start website analysis. Please try again later.",
+        //description: error.message || "Failed to start website analysis. Please try again later.",
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsLoading(false)
-      setIsUrlSubmitting(false)
+      setIsLoading(false);
+      setIsUrlSubmitting(false);
     }
-  }
+};
+
 
   const handleExport = async () => {
     if (availableTokens < 5) {
@@ -126,46 +262,71 @@ export default function HomePage() {
       })
     }
   }
-
+  const filterMemoryBlock = (query:any) => {
+    if (!memoryBlocks.length) return null;
+  
+    // Match user query with page content or title
+    const filteredBlock = memoryBlocks.find(block =>
+      block.title.toLowerCase().includes(query.toLowerCase()) ||
+      block.content.toLowerCase().includes(query.toLowerCase())
+    );
+  
+    return filteredBlock || memoryBlocks[0]; // Default to the consolidated block
+  };
+  
   const handleChat = async (message: string) => {
     if (availableTokens < 2) {
       toast({
         title: "Not enough tokens",
         description: "Please purchase more tokens to continue chatting.",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
-
-    setMessages((prev) => [...prev, { role: "user", content: message }])
-    setIsLoading(true)
-
+  
+    setMessages((prev) => [...prev, { role: "user", content: message }]);
+    setIsLoading(true);
+  
     try {
-      const chatHistory = messages.slice(-5)
-      const response = await generateChatCompletion([
-        ...chatHistory,
-        { role: "user", content: message },
-      ])
-
+      // Retrieve selected memory block content
+      console.log("memory blocks",memoryBlocks)
+      const selectedMemoryContent = memoryBlocks[0];
+  
+        console.log("selectedMemoryContent",selectedMemoryContent.content)
+      // Combine user input and memory block content
+      const combinedContent = selectedMemoryContent
+        ? `I have given you memory block of crawl data user this and give me the result of user asked Input, User Input:\n${message}\n\nMemory Block Context:\n${JSON.stringify(selectedMemoryContent)}`
+        : message;
+  
+      // Prepare the context for the chat API
+      const contextWindow = [{ role: "user", content: combinedContent }];
+  
+      // Send request to chat API
+      const response = await generateChatCompletion(contextWindow);
+  
+      // Update messages with the assistant's response
       setMessages((prev) => [
         ...prev,
         { role: "assistant", content: response },
-      ])
-
-      setAvailableTokens((prev) => prev - 2)
+      ]);
+  
+      // Deduct tokens for the chat operation
+      setAvailableTokens((prev) => prev - 2);
     } catch (error) {
-      console.error('Error in chat:', error)
+      console.error("Error in chat:", error);
       setMessages((prev) => [
         ...prev,
-        { 
-          role: "assistant", 
-          content: "I apologize, but I encountered an error. Please try again or contact support if the issue persists." 
+        {
+          role: "assistant",
+          content:
+            "I apologize, but I encountered an error. Please try again or contact support if the issue persists.",
         },
-      ])
+      ]);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
+  
 
   const hasTokens = availableTokens > 0
   const showUpgrade = !hasTokens || availableTokens < 5
@@ -214,8 +375,15 @@ export default function HomePage() {
           </div>
           <div className="space-y-4">
             {memoryBlocks.length > 0 ? (
-              memoryBlocks.map((block) => (
-                <MemoryBlock key={block.id} url={block.title} content={block.content} />
+              memoryBlocks.map((block, index) => (
+                <MemoryBlock
+                key={block.id || `block-${index}`}
+  url={block.title}
+  content={block.content}
+  isSelected={selectedBlocks.includes(block.id)}
+  onClick={() => handleBlockClick(block.id)}
+/>
+
               ))
             ) : (
               <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
