@@ -13,6 +13,7 @@ import { useToast } from "@/components/ui/use-toast"
 import { generateChatCompletion } from "@/lib/openrouter"
 import { CrawlStatus } from "@/components/crawl-status"
 
+
 interface Message {
   role: "assistant" | "user"
   content: string
@@ -27,7 +28,10 @@ interface MemoryBlockData {
 
 const INITIAL_TOKENS = 100;
 
+
 export default function HomePage() {
+
+  
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
@@ -273,7 +277,86 @@ const singleMemoryBlock = [{
   
     return filteredBlock || memoryBlocks[0]; // Default to the consolidated block
   };
+  interface ParsedItem {
+    url: string;
+    content: string;
+  }
   
+  interface SimilarityItem {
+    score: number;
+    index: number;
+  }
+  
+  // Text preprocessing utility
+  function preprocessText(text: string): string[] {
+    return text.toLowerCase()
+      .replace(/[^\w\s]/g, '')
+      .split(/\s+/)
+      .filter(word => word.length > 2); // Filter out very short words
+  }
+  
+  // Enhanced TF-IDF calculation
+  function calculateTFIDF(documents: string[]): Map<string, number[]> {
+    const wordVectors = new Map<string, number[]>();
+    const wordCounts = documents.map(doc => {
+      const words = preprocessText(doc);
+      return words.reduce((acc, word) => {
+        acc.set(word, (acc.get(word) || 0) + 1);
+        return acc;
+      }, new Map<string, number>());
+    });
+  
+    const wordDocs = new Map<string, number>();
+    wordCounts.forEach(docWords => {
+      docWords.forEach((_, word) => {
+        wordDocs.set(word, (wordDocs.get(word) || 0) + 1);
+      });
+    });
+  
+    const N = documents.length;
+    wordDocs.forEach((docFreq, word) => {
+      const vector = wordCounts.map(docWords => {
+        const tf = (docWords.get(word) || 0);
+        const idf = Math.log(N / docFreq);
+        return tf * idf;
+      });
+      wordVectors.set(word, vector);
+    });
+  
+    return wordVectors;
+  }
+  
+  // Cosine similarity calculation
+  function cosineSimilarity(vec1: number[], vec2: number[]): number {
+    if (vec1.length !== vec2.length) return 0;
+    const dotProduct = vec1.reduce((sum, val, i) => sum + val * vec2[i], 0);
+    const mag1 = Math.sqrt(vec1.reduce((sum, val) => sum + val * val, 0));
+    const mag2 = Math.sqrt(vec2.reduce((sum, val) => sum + val * val, 0));
+    return mag1 && mag2 ? dotProduct / (mag1 * mag2) : 0;
+  }
+  
+  // Function to analyze user intent
+  async function analyzeUserIntent(query: string): Promise<string[]> {
+    try {
+      const response = await generateChatCompletion([
+        {
+          role: "system",
+          content: "Analyze this query and identify key terms iin the query that might appear in URLs or content, It words should be in given query. Return just a comma-separated list of relevant terms."
+        },
+        {
+          role: "user",
+          content: query
+        }
+      ]);
+  
+      return response.split(',').map((term: string) => term.trim().toLowerCase());
+    } catch (error) {
+      console.error("Error analyzing intent:", error);
+      return preprocessText(query);
+    }
+  }
+  
+  // Enhanced chat handler
   const handleChat = async (message: string) => {
     if (availableTokens < 2) {
       toast({
@@ -288,45 +371,116 @@ const singleMemoryBlock = [{
     setIsLoading(true);
   
     try {
-      // Retrieve selected memory block content
-      console.log("memory blocks",memoryBlocks)
-      const selectedMemoryContent = memoryBlocks[0];
+      const memoryBlock = memoryBlocks[0];
+      if (!memoryBlock) throw new Error("No memory block available");
   
-        console.log("selectedMemoryContent",selectedMemoryContent.content)
-      // Combine user input and memory block content
-      const combinedContent = selectedMemoryContent
-        ? `I have given you memory block of crawl data user this and give me the result of user asked Input, User Input:\n${message}\n\nMemory Block Context:\n${JSON.stringify(selectedMemoryContent)}`
-        : message;
+      const parsedContent = JSON.parse(memoryBlock.content) as ParsedItem[];
+      
+      // Get intent analysis
+      const intentTerms = await analyzeUserIntent(message);
+      console.log("Inhert terms---",intentTerms)
+      // URL-based matching with intent understanding
+      const urlMatches = parsedContent.filter(item => {
+        const urlLower = item.url.toLowerCase();
+        return intentTerms.some(term => urlLower.includes(term));
+      });
+      console.log("URL Matches--",urlMatches)
+      // If we have URL matches, use them directly
+      if (urlMatches.length > 0) {
+        const relevantContent = urlMatches
+          .slice(0, 3) // Take top 3 matches
+          .map(item => {
+            const urlContext = item.url.split('/').pop()?.replace(/[-_.]/g, ' ') || item.url;
+            return `[From ${urlContext}]:\n${item.content}`;
+          })
+          .join('\n\n');
+        console.log("ReLEVENT Content--",relevantContent)
+        const contextForModel = `Based on the relevant pages found, here is the information:\n\n${relevantContent}`;
+        const response = await generateChatCompletion([
+          {
+            role: "system",
+            content: "You are a helpful AI assistant. Focus on providing accurate information from the provided content while being clear and concise."
+          },
+          {
+            role: "user",
+            content: `User asked: "${message}"\n\n${contextForModel}`
+          }
+        ]);
   
-      // Prepare the context for the chat API
-      const contextWindow = [{ role: "user", content: combinedContent }];
+        setMessages((prev) => [...prev, { role: "assistant", content: response }]);
+        setAvailableTokens((prev) => prev - 2);
+        return;
+      }
   
-      // Send request to chat API
-      const response = await generateChatCompletion(contextWindow);
+      // Content similarity matching
+      const documents = parsedContent.map(item => item.content);
+      const allDocs = [...documents, message];
+      const wordVectors = calculateTFIDF(allDocs);
+      const queryIdx = documents.length;
+      
+      const documentVectors = documents.map((_, docIndex) => 
+        Array.from(wordVectors.values()).map(vector => vector[docIndex])
+      );
+      
+      const queryVector = Array.from(wordVectors.values()).map(vector => vector[queryIdx]);
+      
+      const similarities = documentVectors
+        .map((docVector, index) => ({
+          score: cosineSimilarity(docVector, queryVector),
+          index
+        }))
+        .filter(item => item.score > 0.1)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 3);
   
-      // Update messages with the assistant's response
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: response },
-      ]);
+      if (similarities.length > 0) {
+        const relevantContent = similarities
+          .map(({ index }) => {
+            const item = parsedContent[index];
+            const urlContext = item.url.split('/').pop()?.replace(/[-_.]/g, ' ') || item.url;
+            return `[From ${urlContext}]:\n${item.content}`;
+          })
+          .join('\n\n');
   
-      // Deduct tokens for the chat operation
+        const contextForModel = `Based on content analysis, here is the relevant information:\n\n${relevantContent}`;
+        const response = await generateChatCompletion([
+          {
+            role: "system",
+            content: "You are a helpful AI assistant. Provide accurate and relevant information from the content while being clear and concise."
+          },
+          {
+            role: "user",
+            content: `User asked: "${message}"\n\n${contextForModel}`
+          }
+        ]);
+  
+        setMessages((prev) => [...prev, { role: "assistant", content: response }]);
+      } else {
+        const response = await generateChatCompletion([
+          {
+            role: "system",
+            content: "You are a helpful AI assistant. When no matching content is found, be honest and offer to help in other ways."
+          },
+          {
+            role: "user",
+            content: `Could not find relevant information for: "${message}". Please provide a helpful response.`
+          }
+        ]);
+  
+        setMessages((prev) => [...prev, { role: "assistant", content: response }]);
+      }
+  
       setAvailableTokens((prev) => prev - 2);
     } catch (error) {
       console.error("Error in chat:", error);
       setMessages((prev) => [
         ...prev,
-        {
-          role: "assistant",
-          content:
-            "I apologize, but I encountered an error. Please try again or contact support if the issue persists.",
-        },
+        { role: "assistant", content: "I encountered an error while processing your request. Please try again." }
       ]);
     } finally {
       setIsLoading(false);
     }
   };
-  
 
   const hasTokens = availableTokens > 0
   const showUpgrade = !hasTokens || availableTokens < 5

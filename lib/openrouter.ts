@@ -32,7 +32,7 @@ export async function generateChatCompletion(messages: { role: string; content: 
     if (!data.choices?.[0]?.message?.content) {
       throw new Error('Invalid response structure from OpenRouter API')
     }
-
+    console.log("Response from api",data.choices[0].message.content)
     return data.choices[0].message.content
   } catch (error) {
     console.error('OpenRouter API Error:', error)
