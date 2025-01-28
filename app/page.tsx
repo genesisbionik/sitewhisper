@@ -79,7 +79,7 @@ export default function HomePage() {
 
       // Step 1: Get URLs from local endpoint
       const localCrawlResponse = await fetch(
-        `http://localhost:3008/api/crawl?url=${encodeURIComponent(url)}`
+        `https://urlsscrape-git-main-kartik1337s-projects.vercel.app/api/crawl?url=${encodeURIComponent(url)}`
       );
       const localCrawlData = await localCrawlResponse.json();
 
@@ -341,7 +341,7 @@ const singleMemoryBlock = [{
       const response = await generateChatCompletion([
         {
           role: "system",
-          content: "Analyze this query and identify key terms iin the query that might appear in URLs or content, It words should be in given query. Return just a comma-separated list of relevant terms."
+          content: "Analyze this query and identify pages that user is asking that might appear in URLs or content, It words should be in given query. Return just a comma-separated list of relevant terms."
         },
         {
           role: "user",
@@ -375,9 +375,10 @@ const singleMemoryBlock = [{
       if (!memoryBlock) throw new Error("No memory block available");
   
       const parsedContent = JSON.parse(memoryBlock.content) as ParsedItem[];
-      
+      console.log("PARSED CONTENT",parsedContent)
       // Get intent analysis
-      const intentTerms = await analyzeUserIntent(message);
+      let intentTerms = await analyzeUserIntent(message);
+      intentTerms = intentTerms.filter(term => term !== "page" && term !== "content");
       console.log("Inhert terms---",intentTerms)
       // URL-based matching with intent understanding
       const urlMatches = parsedContent.filter(item => {

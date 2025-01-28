@@ -1,42 +1,46 @@
-const OPENROUTER_API_KEY = process.env.NEXT_PUBLIC_OPENROUTER_API_KEY
+const DEEPSEEK_API_KEY = process.env.NEXT_PUBLIC_DEEPSEEK_API_KEY;
 
 export async function generateChatCompletion(messages: { role: string; content: string }[]) {
-  console.log("Message",messages)
-  console.log(process.env.NEXT_PUBLIC_OPENROUTER_API_KEY,"OPEN ROUTERRR")
-  if (!OPENROUTER_API_KEY) {
-    return "I apologize, but I'm currently running in limited mode without AI capabilities. The administrator needs to configure the OpenRouter API key to enable advanced AI features."
+  console.log("Messages:", messages);
+  console.log("API Key Status:", DEEPSEEK_API_KEY ? "Present" : "Missing");
+
+  if (!DEEPSEEK_API_KEY) {
+    return "I apologize, but I'm currently running in limited mode without AI capabilities. The administrator needs to configure the DeepSeek API key to enable advanced AI features.";
   }
 
   try {
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-        'HTTP-Referer': 'https://sitewhisper.com',
-        'X-Title': 'SiteWhisper'
+        'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
       },
       body: JSON.stringify({
-        model: 'deepseek/deepseek-r1',
+        model: 'deepseek-chat',
         messages: messages,
+        temperature: 0.7,
+        max_tokens: 2000,
+        top_p: 0.95,
+        frequency_penalty: 0,
+        presence_penalty: 0
       }),
-    })
+    });
 
     if (!response.ok) {
-      const errorBody = await response.text()
-      throw new Error(`Failed to generate chat completion: ${response.status} ${response.statusText}. ${errorBody}`)
+      const errorBody = await response.text();
+      throw new Error(`DeepSeek API Error: ${response.status} ${response.statusText}. ${errorBody}`);
     }
 
-    const data = await response.json()
-    console.log(data)
+    const data = await response.json();
+    console.log("API Response:", data);
+
     if (!data.choices?.[0]?.message?.content) {
-      throw new Error('Invalid response structure from OpenRouter API')
+      throw new Error('Invalid response structure from DeepSeek API');
     }
-    console.log("Response from api",data.choices[0].message.content)
-    return data.choices[0].message.content
+
+    return data.choices[0].message.content;
   } catch (error) {
-    console.error('OpenRouter API Error:', error)
-    throw error // Re-throw the error to be handled by the caller
+    console.error('DeepSeek API Error:', error);
+    throw error;
   }
 }
-

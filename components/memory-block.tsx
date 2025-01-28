@@ -32,9 +32,9 @@ export function MemoryBlock({ url, content, isSelected, onClick }: MemoryBlockPr
           )}
         </div>
       </CardHeader>
-      <CardContent>
+      {/* <CardContent>
         <p className="text-sm">{content}</p>
-      </CardContent>
+      </CardContent> */}
     </Card>
   );
 }
