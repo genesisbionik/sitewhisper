@@ -356,6 +356,50 @@ const singleMemoryBlock = [{
     }
   }
   
+  const classifyQuery = (query: string) => {
+    const pageSpecificIndicators = [
+      'page', 'article', 'post', 'section', 'where', 'find', 'search', 'look for'
+    ];
+    
+    const siteWideIndicators = [
+      'how many', 'what is', 'website', 'site', 'overall', 'total', 'summary'
+    ];
+    
+    query = query.toLowerCase();
+    
+    const isPageSpecific = pageSpecificIndicators.some(indicator => 
+      query.includes(indicator)
+    );
+    
+    const isSiteWide = siteWideIndicators.some(indicator => 
+      query.includes(indicator)
+    );
+    
+    return {
+      isPageSpecific,
+      isSiteWide
+    };
+  };
+
+  const extractSiteStructure = (parsedContent: ParsedItem[]) => {
+    const urls = parsedContent.map(item => item.url);
+    
+    // Get main sections from URLs
+    const sections = urls.map(url => {
+      const parts = url.split('/').filter(Boolean);
+      return parts[0] || ''; // Get first part of path
+    });
+    
+    const uniqueSections = [...new Set(sections)].filter(Boolean);
+  
+    return {
+      totalUrls: urls.length,
+      uniqueUrls: new Set(urls).size,
+      mainSections: uniqueSections,
+      urls: urls
+    };
+  };
+  
   // Enhanced chat handler
   const handleChat = async (message: string) => {
     if (availableTokens < 2) {
@@ -375,96 +419,91 @@ const singleMemoryBlock = [{
       if (!memoryBlock) throw new Error("No memory block available");
   
       const parsedContent = JSON.parse(memoryBlock.content) as ParsedItem[];
-      console.log("PARSED CONTENT",parsedContent)
-      // Get intent analysis
-      let intentTerms = await analyzeUserIntent(message);
-      intentTerms = intentTerms.filter(term => term !== "page" && term !== "content");
-      console.log("Inhert terms---",intentTerms)
-      // URL-based matching with intent understanding
-      const urlMatches = parsedContent.filter(item => {
-        const urlLower = item.url.toLowerCase();
-        return intentTerms.some(term => urlLower.includes(term));
-      });
-      console.log("URL Matches--",urlMatches)
-      // If we have URL matches, use them directly
-      if (urlMatches.length > 0) {
-        const relevantContent = urlMatches
-          .slice(0, 3) // Take top 3 matches
-          .map(item => {
-            const urlContext = item.url.split('/').pop()?.replace(/[-_.]/g, ' ') || item.url;
-            return `[From ${urlContext}]:\n${item.content}`;
-          })
-          .join('\n\n');
-        console.log("ReLEVENT Content--",relevantContent)
-        const contextForModel = `Based on the relevant pages found, here is the information:\n\n${relevantContent}`;
+      const queryClassification = classifyQuery(message);
+  
+      if (queryClassification.isSiteWide) {
+        // Handle site-wide queries
+        const siteStructure = extractSiteStructure(parsedContent);
+        const contextForModel = `Site Analysis:
+  Total URLs: ${siteStructure.totalUrls}
+  Unique URLs: ${siteStructure.uniqueUrls}
+  Main Sections: ${siteStructure.mainSections.join(', ')}
+  All URLs: ${siteStructure.urls.join('\n')}`;
+  
         const response = await generateChatCompletion([
           {
             role: "system",
-            content: "You are a helpful AI assistant. Focus on providing accurate information from the provided content while being clear and concise."
+            content: "You are a website analyzer. For site-wide queries, provide clear statistics and insights about the website structure. Be specific with numbers and patterns you observe."
           },
           {
             role: "user",
-            content: `User asked: "${message}"\n\n${contextForModel}`
+            content: `Site-wide query: "${message}"\n\n${contextForModel}`
           }
         ]);
   
         setMessages((prev) => [...prev, { role: "assistant", content: response }]);
-        setAvailableTokens((prev) => prev - 2);
-        return;
-      }
+      } else if (queryClassification.isPageSpecific) {
+        // Handle page-specific queries
+        const intentTerms = await analyzeUserIntent(message);
+        console.log("Intent terms for page-specific query:", intentTerms);
   
-      // Content similarity matching
-      const documents = parsedContent.map(item => item.content);
-      const allDocs = [...documents, message];
-      const wordVectors = calculateTFIDF(allDocs);
-      const queryIdx = documents.length;
-      
-      const documentVectors = documents.map((_, docIndex) => 
-        Array.from(wordVectors.values()).map(vector => vector[docIndex])
-      );
-      
-      const queryVector = Array.from(wordVectors.values()).map(vector => vector[queryIdx]);
-      
-      const similarities = documentVectors
-        .map((docVector, index) => ({
-          score: cosineSimilarity(docVector, queryVector),
-          index
-        }))
-        .filter(item => item.score > 0.1)
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 3);
+        const urlMatches = parsedContent.filter(item => {
+          const urlLower = item.url.toLowerCase();
+          return intentTerms.some(term => urlLower.includes(term));
+        });
   
-      if (similarities.length > 0) {
-        const relevantContent = similarities
-          .map(({ index }) => {
-            const item = parsedContent[index];
-            const urlContext = item.url.split('/').pop()?.replace(/[-_.]/g, ' ') || item.url;
-            return `[From ${urlContext}]:\n${item.content}`;
-          })
-          .join('\n\n');
+        if (urlMatches.length > 0) {
+          const relevantContent = urlMatches
+            .slice(0, 3)
+            .map(item => {
+              const urlPath = item.url.split('/').pop() || item.url;
+              const pageName = urlPath.replace(/[-_]/g, ' ').trim();
+              return `[Page: ${pageName}]\n${item.content}`;
+            })
+            .join('\n\n');
   
-        const contextForModel = `Based on content analysis, here is the relevant information:\n\n${relevantContent}`;
-        const response = await generateChatCompletion([
-          {
-            role: "system",
-            content: "You are a helpful AI assistant. Provide accurate and relevant information from the content while being clear and concise."
-          },
-          {
-            role: "user",
-            content: `User asked: "${message}"\n\n${contextForModel}`
-          }
-        ]);
+          const response = await generateChatCompletion([
+            {
+              role: "system",
+              content: "You are a webpage content analyzer. Focus on providing specific information from the matched pages, addressing exactly what was asked about the page."
+            },
+            {
+              role: "user",
+              content: `Page-specific query: "${message}"\n\nContent from matched pages:\n${relevantContent}`
+            }
+          ]);
   
-        setMessages((prev) => [...prev, { role: "assistant", content: response }]);
+          setMessages((prev) => [...prev, { role: "assistant", content: response }]);
+        } else {
+          // No specific page matches found
+          const response = await generateChatCompletion([
+            {
+              role: "system",
+              content: "You are a helpful assistant. When no specific page matches are found, provide a clear explanation and list available pages that might be relevant."
+            },
+            {
+              role: "user",
+              content: `No exact page matches found for: "${message}". Available sections: ${extractSiteStructure(parsedContent).mainSections.join(', ')}`
+            }
+          ]);
+  
+          setMessages((prev) => [...prev, { role: "assistant", content: response }]);
+        }
       } else {
+        // General query - use content similarity
+        const relevantContent = parsedContent
+          .slice(0, 3)
+          .map(item => item.content)
+          .join('\n\n');
+  
         const response = await generateChatCompletion([
           {
             role: "system",
-            content: "You are a helpful AI assistant. When no matching content is found, be honest and offer to help in other ways."
+            content: "You are a helpful assistant. For general queries, provide relevant information from the website content."
           },
           {
             role: "user",
-            content: `Could not find relevant information for: "${message}". Please provide a helpful response.`
+            content: `General query: "${message}"\n\nWebsite content:\n${relevantContent}`
           }
         ]);
   
