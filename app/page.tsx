@@ -17,6 +17,7 @@ import { CrawlStatus } from "@/components/crawl-status"
 interface Message {
   role: "assistant" | "user"
   content: string
+  isStreaming?: boolean
 }
 
 interface MemoryBlockData {
@@ -412,104 +413,58 @@ const singleMemoryBlock = [{
     }
   
     setMessages((prev) => [...prev, { role: "user", content: message }]);
-    setIsLoading(true);
-  
+    
+    // Add initial assistant message for streaming
+    const assistantMessageIndex = messages.length + 1;
+    setMessages((prev) => [...prev, { 
+      role: "assistant", 
+      content: "", 
+      isStreaming: true 
+    }]);
+
     try {
       const memoryBlock = memoryBlocks[0];
       if (!memoryBlock) throw new Error("No memory block available");
-  
+
       const parsedContent = JSON.parse(memoryBlock.content) as ParsedItem[];
       const queryClassification = classifyQuery(message);
-  
-      if (queryClassification.isSiteWide) {
-        // Handle site-wide queries
-        const siteStructure = extractSiteStructure(parsedContent);
-        const contextForModel = `Site Analysis:
-  Total URLs: ${siteStructure.totalUrls}
-  Unique URLs: ${siteStructure.uniqueUrls}
-  Main Sections: ${siteStructure.mainSections.join(', ')}
-  All URLs: ${siteStructure.urls.join('\n')}`;
-  
-        const response = await generateChatCompletion([
-          {
-            role: "system",
-            content: "You are a website analyzer. For site-wide queries, provide clear statistics and insights about the website structure. Be specific with numbers and patterns you observe."
-          },
-          {
-            role: "user",
-            content: `Site-wide query: "${message}"\n\n${contextForModel}`
-          }
-        ]);
-  
-        setMessages((prev) => [...prev, { role: "assistant", content: response }]);
-      } else if (queryClassification.isPageSpecific) {
-        // Handle page-specific queries
-        const intentTerms = await analyzeUserIntent(message);
-        console.log("Intent terms for page-specific query:", intentTerms);
-  
-        const urlMatches = parsedContent.filter(item => {
-          const urlLower = item.url.toLowerCase();
-          return intentTerms.some(term => urlLower.includes(term));
+      
+      // Prepare the messages based on query type
+      const systemMessage = queryClassification.isSiteWide 
+        ? "You are a website analyzer..."
+        : queryClassification.isPageSpecific
+        ? "You are a webpage content analyzer..."
+        : "You are a helpful assistant...";
+
+      // Handle streaming response
+      let streamedContent = '';
+      await generateChatCompletion([
+        { role: "system", content: systemMessage },
+        { role: "user", content: message }
+      ], (chunk) => {
+        streamedContent += chunk;
+        setMessages((prev) => {
+          const updated = [...prev];
+          updated[assistantMessageIndex] = {
+            role: "assistant",
+            content: streamedContent,
+            isStreaming: true
+          };
+          return updated;
         });
-  
-        if (urlMatches.length > 0) {
-          const relevantContent = urlMatches
-            .slice(0, 3)
-            .map(item => {
-              const urlPath = item.url.split('/').pop() || item.url;
-              const pageName = urlPath.replace(/[-_]/g, ' ').trim();
-              return `[Page: ${pageName}]\n${item.content}`;
-            })
-            .join('\n\n');
-  
-          const response = await generateChatCompletion([
-            {
-              role: "system",
-              content: "You are a webpage content analyzer. Focus on providing specific information from the matched pages, addressing exactly what was asked about the page."
-            },
-            {
-              role: "user",
-              content: `Page-specific query: "${message}"\n\nContent from matched pages:\n${relevantContent}`
-            }
-          ]);
-  
-          setMessages((prev) => [...prev, { role: "assistant", content: response }]);
-        } else {
-          // No specific page matches found
-          const response = await generateChatCompletion([
-            {
-              role: "system",
-              content: "You are a helpful assistant. When no specific page matches are found, provide a clear explanation and list available pages that might be relevant."
-            },
-            {
-              role: "user",
-              content: `No exact page matches found for: "${message}". Available sections: ${extractSiteStructure(parsedContent).mainSections.join(', ')}`
-            }
-          ]);
-  
-          setMessages((prev) => [...prev, { role: "assistant", content: response }]);
-        }
-      } else {
-        // General query - use content similarity
-        const relevantContent = parsedContent
-          .slice(0, 3)
-          .map(item => item.content)
-          .join('\n\n');
-  
-        const response = await generateChatCompletion([
-          {
-            role: "system",
-            content: "You are a helpful assistant. For general queries, provide relevant information from the website content."
-          },
-          {
-            role: "user",
-            content: `General query: "${message}"\n\nWebsite content:\n${relevantContent}`
-          }
-        ]);
-  
-        setMessages((prev) => [...prev, { role: "assistant", content: response }]);
-      }
-  
+      });
+
+      // Update final message without streaming flag
+      setMessages((prev) => {
+        const updated = [...prev];
+        updated[assistantMessageIndex] = {
+          role: "assistant",
+          content: streamedContent,
+          isStreaming: false
+        };
+        return updated;
+      });
+
       setAvailableTokens((prev) => prev - 2);
     } catch (error) {
       console.error("Error in chat:", error);
@@ -517,8 +472,6 @@ const singleMemoryBlock = [{
         ...prev,
         { role: "assistant", content: "I encountered an error while processing your request. Please try again." }
       ]);
-    } finally {
-      setIsLoading(false);
     }
   };
 
