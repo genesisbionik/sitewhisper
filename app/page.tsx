@@ -412,22 +412,28 @@ const singleMemoryBlock = [{
       return;
     }
   
+    // Add user message
     setMessages((prev) => [...prev, { role: "user", content: message }]);
     
-    // Add initial assistant message for streaming
-    const assistantMessageIndex = messages.length + 1;
-    setMessages((prev) => [...prev, { 
-      role: "assistant", 
-      content: "", 
-      isStreaming: true 
-    }]);
-
+    // Set loading state
+    setIsLoading(true);
+    
     try {
       const memoryBlock = memoryBlocks[0];
       if (!memoryBlock) throw new Error("No memory block available");
 
       const parsedContent = JSON.parse(memoryBlock.content) as ParsedItem[];
       const queryClassification = classifyQuery(message);
+      
+      // Add initial assistant message
+      setMessages((prev) => [...prev, { 
+        role: "assistant", 
+        content: "", 
+        isStreaming: true 
+      }]);
+
+      // Get the index for the assistant message
+      const assistantMessageIndex = messages.length;
       
       // Prepare the messages based on query type
       const systemMessage = queryClassification.isSiteWide 
@@ -445,11 +451,13 @@ const singleMemoryBlock = [{
         streamedContent += chunk;
         setMessages((prev) => {
           const updated = [...prev];
-          updated[assistantMessageIndex] = {
-            role: "assistant",
-            content: streamedContent,
-            isStreaming: true
-          };
+          if (updated[assistantMessageIndex]) {
+            updated[assistantMessageIndex] = {
+              role: "assistant",
+              content: streamedContent,
+              isStreaming: true
+            };
+          }
           return updated;
         });
       });
@@ -457,11 +465,13 @@ const singleMemoryBlock = [{
       // Update final message without streaming flag
       setMessages((prev) => {
         const updated = [...prev];
-        updated[assistantMessageIndex] = {
-          role: "assistant",
-          content: streamedContent,
-          isStreaming: false
-        };
+        if (updated[assistantMessageIndex]) {
+          updated[assistantMessageIndex] = {
+            role: "assistant",
+            content: streamedContent,
+            isStreaming: false
+          };
+        }
         return updated;
       });
 
@@ -470,8 +480,14 @@ const singleMemoryBlock = [{
       console.error("Error in chat:", error);
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: "I encountered an error while processing your request. Please try again." }
+        { 
+          role: "assistant", 
+          content: "I encountered an error while processing your request. Please try again.",
+          isStreaming: false
+        }
       ]);
+    } finally {
+      setIsLoading(false);
     }
   };
 

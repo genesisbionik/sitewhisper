@@ -5,16 +5,22 @@ interface ChatMessageProps {
   role: "assistant" | "user"
   content: string
   isLoading?: boolean
+  isStreaming?: boolean
 }
 
-export function ChatMessage({ role, content, isLoading }: ChatMessageProps) {
+export function ChatMessage({ role, content, isLoading, isStreaming }: ChatMessageProps) {
   return (
-    <div className={cn("flex w-full gap-4 p-4", role === "assistant" ? "bg-muted/50" : "bg-background")}>
+    <div className={cn(
+      "flex w-full gap-4 p-4",
+      role === "assistant" ? "bg-muted/50" : "bg-background"
+    )}>
       <div className="flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-md border shadow">
         {role === "assistant" ? <Bot className="h-4 w-4" /> : <User className="h-4 w-4" />}
       </div>
       <div className="flex-1 space-y-2">
-        <p className="text-sm text-muted-foreground">{role === "assistant" ? "SiteWhisper" : "You"}</p>
+        <p className="text-sm text-muted-foreground">
+          {role === "assistant" ? "SiteWhisper" : "You"}
+        </p>
         {isLoading ? (
           <div className="flex items-center gap-1">
             <div className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground/50"></div>
@@ -23,7 +29,12 @@ export function ChatMessage({ role, content, isLoading }: ChatMessageProps) {
           </div>
         ) : (
           <div className="space-y-4">
-            <p className="text-sm">{content}</p>
+            <p className="text-sm whitespace-pre-wrap">
+              {content}
+              {isStreaming && (
+                <span className="inline-block w-1 h-4 ml-1 align-middle bg-current animate-pulse">|</span>
+              )}
+            </p>
           </div>
         )}
       </div>

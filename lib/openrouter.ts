@@ -1,6 +1,27 @@
 const DEEPSEEK_API_KEY = process.env.NEXT_PUBLIC_DEEPSEEK_API_KEY;
 
-export async function generateChatCompletion(messages: { role: string; content: string }[]) {
+// Add more detailed logging
+console.log("OpenRouter initialization:", {
+  isProduction: process.env.NODE_ENV === 'production',
+  hasApiKey: !!DEEPSEEK_API_KEY,
+  keyPrefix: DEEPSEEK_API_KEY?.substring(0, 4) // Only log first 4 chars for security
+});
+
+if (!DEEPSEEK_API_KEY) {
+  console.error("DeepSeek API key is missing. Please check your environment variables.");
+}
+
+export async function generateChatCompletion(
+  messages: { role: string; content: string }[],
+  onStream?: (chunk: string) => void
+) {
+  // Add request logging
+  console.log("Attempting API call:", {
+    hasMessages: messages.length > 0,
+    apiKeyStatus: DEEPSEEK_API_KEY ? 'Present' : 'Missing',
+    endpoint: 'https://api.deepseek.com/v1/chat/completions'
+  });
+
   console.log("Messages:", messages);
   console.log("API Key Status:", DEEPSEEK_API_KEY ? "Present" : "Missing");
 
