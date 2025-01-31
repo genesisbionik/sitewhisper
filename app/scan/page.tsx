@@ -96,7 +96,7 @@ export default function ScanPage() {
       ...prev,
       {
         role: "assistant",
-        content: `I've analyzed ${url} and created ${newMemoryBlocks.length} memory blocks. Each block contains structured information about different aspects of the website. You can now interact with this data or export it for further use.`,
+        content: newMemoryBlocks.map((block) => block.content).join('\n\n'),
       },
     ])
     setIsLoading(false)
