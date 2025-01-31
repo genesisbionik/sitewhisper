@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+// Temporarily comment out Supabase initialization
+// import { createClient } from '@supabase/supabase-js'
+// 
+// const supabase = createClient(
+//   process.env.NEXT_PUBLIC_SUPABASE_URL!,
+//   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+// )
 
 export async function POST(req: NextRequest) {
   const { url, content, userId } = await req.json()
