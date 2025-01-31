@@ -12,6 +12,7 @@ import { Download } from 'lucide-react'
 import { useToast } from "@/components/ui/use-toast"
 import { generateChatCompletion } from "@/lib/openrouter"
 import { CrawlStatus } from "@/components/crawl-status"
+import { SYSTEM_PROMPTS } from '@/lib/constants'
 
 
 interface Message {
@@ -437,10 +438,10 @@ const singleMemoryBlock = [{
       
       // Prepare the messages based on query type
       const systemMessage = queryClassification.isSiteWide 
-        ? "You are a website analyzer..."
+        ? SYSTEM_PROMPTS.siteWide
         : queryClassification.isPageSpecific
-        ? "You are a webpage content analyzer..."
-        : "You are a helpful assistant...";
+        ? SYSTEM_PROMPTS.pageSpecific
+        : SYSTEM_PROMPTS.default;
 
       // Handle streaming response
       let streamedContent = '';
