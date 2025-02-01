@@ -539,15 +539,14 @@ const singleMemoryBlock = [{
           </div>
           <div className="space-y-4">
             {memoryBlocks.length > 0 ? (
-              memoryBlocks.map((block, index) => (
+              memoryBlocks.map((block: MemoryBlockData, index: number) => (
                 <MemoryBlock
-                key={block.id || `block-${index}`}
-  url={block.title}
-  content={block.content}
-  isSelected={selectedBlocks.includes(block.id)}
-  onClick={() => handleBlockClick(block.id)}
-/>
-
+                  key={block.id || `block-${index}`}
+                  url={block.title}
+                  content={block.content}
+                  isSelected={selectedBlocks.includes(block.id)}
+                  onClick={() => handleBlockClick(block.id)}
+                />
               ))
             ) : (
               <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
