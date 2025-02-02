@@ -55,7 +55,8 @@ export async function generateChatCompletion(
         'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
       },
       body: JSON.stringify({
-        model: 'deepseek-v3',
+        model: 'deepseek-chat',
+        stream: false,
         messages: messages,
         temperature: 0.7,
         max_tokens: 2000,
