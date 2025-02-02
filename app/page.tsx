@@ -19,6 +19,7 @@ interface Message {
   role: "assistant" | "user"
   content: string
   isStreaming?: boolean
+  id?: string
 }
 
 interface MemoryBlockData {
@@ -426,16 +427,20 @@ const singleMemoryBlock = [{
       const parsedContent = JSON.parse(memoryBlock.content) as ParsedItem[];
       const queryClassification = classifyQuery(message);
       
-      // Add initial assistant message
-      setMessages((prev) => [...prev, { 
-        role: "assistant", 
-        content: "", 
-        isStreaming: true 
-      }]);
+      // Generate unique ID for the new assistant message
+      const assistantMessageId = `msg_${Date.now()}`;
 
-      // Get the index for the assistant message
-      const assistantMessageIndex = messages.length;
-      
+      // Add initial assistant message with ID
+      setMessages((prev) => [
+        ...prev, 
+        { 
+          role: "assistant", 
+          content: "", 
+          isStreaming: true,
+          id: assistantMessageId
+        }
+      ]);
+
       // Prepare the messages based on query type
       const systemMessage = queryClassification.isSiteWide 
         ? SYSTEM_PROMPTS.siteWide
@@ -444,36 +449,24 @@ const singleMemoryBlock = [{
         : SYSTEM_PROMPTS.default;
 
       // Handle streaming response
-      let streamedContent = '';
-      await generateChatCompletion([
+      const chatResponse = await generateChatCompletion([
         { role: "system", content: systemMessage },
         { role: "user", content: message }
-      ], (chunk) => {
-        streamedContent += chunk;
-        setMessages((prev) => {
-          const updated = [...prev];
-          if (updated[assistantMessageIndex]) {
-            updated[assistantMessageIndex] = {
-              role: "assistant",
-              content: streamedContent,
-              isStreaming: true
-            };
-          }
-          return updated;
-        });
-      });
+      ]);
 
-      // Update final message without streaming flag
+      // Update the assistant message with the full response
       setMessages((prev) => {
-        const updated = [...prev];
-        if (updated[assistantMessageIndex]) {
-          updated[assistantMessageIndex] = {
-            role: "assistant",
-            content: streamedContent,
-            isStreaming: false
+        const messageIndex = prev.findIndex(msg => msg.id === assistantMessageId);
+        if (messageIndex > -1) {
+          const updated = [...prev];
+          updated[messageIndex] = {
+            ...updated[messageIndex],
+            content: chatResponse,
+            isStreaming: false,
           };
+          return updated;
         }
-        return updated;
+        return prev;
       });
 
       setAvailableTokens((prev) => prev - 2);

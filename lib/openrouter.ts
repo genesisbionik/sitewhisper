@@ -44,11 +44,9 @@ When analyzing websites:
 Remember: You are the bridge between complex web architectures and human understanding. Your goal is to make web analysis accessible while maintaining technical accuracy.`;
 
 export async function generateChatCompletion(
-  messages: { role: string; content: string }[],
-  onStream?: (chunk: string) => void
+  messages: { role: string; content: string }[]
 ) {
-  // The system prompt should already be included in the messages array
-  // from the calling function
+  // Using DeepSeek v3 with non-streaming response, ignoring onStream
   try {
     const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
       method: 'POST',
@@ -57,13 +55,13 @@ export async function generateChatCompletion(
         'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
       },
       body: JSON.stringify({
-        model: 'deepseek-reasoner',
+        model: 'deepseek-v3',
         messages: messages,
         temperature: 0.7,
         max_tokens: 2000,
         top_p: 0.95,
         frequency_penalty: 0,
-        presence_penalty: 0
+        presence_penalty: 0,
       }),
     });
 
@@ -75,6 +73,7 @@ export async function generateChatCompletion(
     const data = await response.json();
     console.log("API Response:", data);
 
+    // Adjust the condition if the v3 response shape differs
     if (!data.choices?.[0]?.message?.content) {
       throw new Error('Invalid response structure from DeepSeek API');
     }
