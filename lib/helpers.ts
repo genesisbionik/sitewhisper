@@ -27,12 +27,37 @@ export function getRelevantContext(query: string, blocks: MemoryBlockData[]): st
   return summaries.join("\n\n");
 }
 
-export function getSummaryContext(): string {
-  // TODO: Replace with your actual logic.
-  return "Summary context placeholder";
+export function getSummaryContext(blocks: MemoryBlockData[]): string {
+  // Find the consolidated memory block and parse its content
+  const consolidated = blocks.find(b => b.id === "consolidated-block");
+  if (consolidated) {
+    try {
+      const items = JSON.parse(consolidated.content);
+      // For summary, simply state the count of pages (or other high-level info)
+      return `Analyzed ${items.length} pages from genibot.ai.`;
+    } catch (e) {
+      console.error("Error parsing summary context:", e);
+      return "";
+    }
+  }
+  return "";
 }
 
-export function getDetailedMemoryBlock(): string {
-  // TODO: Replace with your actual logic.
-  return "Detailed memory block placeholder";
+export function getDetailedMemoryBlock(blocks: MemoryBlockData[]): string {
+  // Find the consolidated memory block and extract detailed data
+  const consolidated = blocks.find(b => b.id === "consolidated-block");
+  if (consolidated) {
+    try {
+      const items = JSON.parse(consolidated.content);
+      // Combine details from each item (using a snippet of cleaned_html)
+      return items.map((item: any) => {
+        const snippet = item.cleaned_html ? item.cleaned_html.slice(0, 300) + "..." : "";
+        return `${item.url}:\n${snippet}`;
+      }).join("\n\n");
+    } catch (e) {
+      console.error("Error parsing detailed memory block:", e);
+      return "";
+    }
+  }
+  return "";
 } 

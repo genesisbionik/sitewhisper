@@ -449,12 +449,9 @@ const singleMemoryBlock = [{
         ? SYSTEM_PROMPTS.pageSpecific
         : SYSTEM_PROMPTS.default;
       
-      // Use semantic search (or simple keyword matching) to extract only relevant crawl data
-      const relevantContext = getRelevantContext(message, memoryBlocks);
-      
-      // Assume we have two functions: getSummaryContext() and getDetailedMemoryBlock()
-      const summaryContext = getSummaryContext();
-      const detailedContext = getDetailedMemoryBlock();
+      // Now pass the memoryBlocks array to extract context information
+      const summaryContext = getSummaryContext(memoryBlocks);
+      const detailedContext = getDetailedMemoryBlock(memoryBlocks);
 
       // Combine contexts: if detailed context exists, put it first, then append summary context as a fallback.
       const combinedContext = detailedContext ? `${detailedContext}\n\nAdditional Summary:\n${summaryContext}` : summaryContext;
