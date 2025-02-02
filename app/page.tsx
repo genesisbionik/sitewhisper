@@ -13,7 +13,7 @@ import { useToast } from "@/components/ui/use-toast"
 import { generateChatCompletion } from "@/lib/openrouter"
 import { CrawlStatus } from "@/components/crawl-status"
 import { SYSTEM_PROMPTS } from '@/lib/constants'
-import { getRelevantContext } from "@/lib/helpers"
+import { getRelevantContext, getSummaryContext, getDetailedMemoryBlock } from "@/lib/helpers"
 
 
 interface Message {
@@ -451,8 +451,15 @@ const singleMemoryBlock = [{
       
       // Use semantic search (or simple keyword matching) to extract only relevant crawl data
       const relevantContext = getRelevantContext(message, memoryBlocks);
-      // Combine your system prompt with the relevant context
-      const messageContext = `${systemMessage}\n\nRelevant Crawl Data:\n${relevantContext}`;
+      
+      // Assume we have two functions: getSummaryContext() and getDetailedMemoryBlock()
+      const summaryContext = getSummaryContext();
+      const detailedContext = getDetailedMemoryBlock();
+
+      // Combine contexts: if detailed context exists, put it first, then append summary context as a fallback.
+      const combinedContext = detailedContext ? `${detailedContext}\n\nAdditional Summary:\n${summaryContext}` : summaryContext;
+
+      const messageContext = `${systemMessage}\n\nContext:\n${combinedContext}`;
 
       // Handle streaming response
       const chatResponse = await generateChatCompletion([

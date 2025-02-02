@@ -25,4 +25,14 @@ export function getRelevantContext(query: string, blocks: MemoryBlockData[]): st
   });
 
   return summaries.join("\n\n");
+}
+
+export function getSummaryContext(): string {
+  // TODO: Replace with your actual logic.
+  return "Summary context placeholder";
+}
+
+export function getDetailedMemoryBlock(): string {
+  // TODO: Replace with your actual logic.
+  return "Detailed memory block placeholder";
 } 

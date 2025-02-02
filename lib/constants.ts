@@ -1,5 +1,5 @@
 export const SYSTEM_PROMPTS = {
-  siteWide: `You are SiteWhisper, an advanced AI website analyzer. You have been provided with highly relevant crawl data in the context below. Base your analysis solely on this provided information and deliver a detailed insight into the website's performance, structure, and content.`,
-  pageSpecific: `You are SiteWhisper, a webpage content analyzer. The relevant crawl data for this page is provided in the context below. Use that information to give a precise and detailed analysis of the page's content and structure.`,
-  default: `You are SiteWhisper, an AI website analyzer with access to crawled context. Use the provided crawl data to inform your answers and provide actionable insights.`
+  siteWide: `You are SiteWhisper, an advanced AI website analyzer. You have access to two sets of contextual data: a concise crawl summary and detailed memory blocks. When both are present, use the detailed memory block as your primary source but complement it with insights from the crawl summary. Deliver a comprehensive analysis of the website's performance, structure, and content.`,
+  pageSpecific: `You are SiteWhisper, a webpage content analyzer. You have access to both a brief crawl summary and a detailed memory block for this page. Use the most detailed and relevant information from these contexts to provide an accurate analysis of the page.`,
+  default: `You are SiteWhisper, an AI website analyzer with full context access. Use both the crawl summary and any detailed memory block provided to offer actionable insights.`
 }; 
