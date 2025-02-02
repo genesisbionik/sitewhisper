@@ -13,6 +13,7 @@ import { useToast } from "@/components/ui/use-toast"
 import { generateChatCompletion } from "@/lib/openrouter"
 import { CrawlStatus } from "@/components/crawl-status"
 import { SYSTEM_PROMPTS } from '@/lib/constants'
+import { getRelevantContext } from "@/lib/helpers"
 
 
 interface Message {
@@ -441,16 +442,21 @@ const singleMemoryBlock = [{
         }
       ]);
 
-      // Prepare the messages based on query type
+      // Prepare the system prompt using a predefined system message
       const systemMessage = queryClassification.isSiteWide 
         ? SYSTEM_PROMPTS.siteWide
         : queryClassification.isPageSpecific
         ? SYSTEM_PROMPTS.pageSpecific
         : SYSTEM_PROMPTS.default;
+      
+      // Use semantic search (or simple keyword matching) to extract only relevant crawl data
+      const relevantContext = getRelevantContext(message, memoryBlocks);
+      // Combine your system prompt with the relevant context
+      const messageContext = `${systemMessage}\n\nRelevant Crawl Data:\n${relevantContext}`;
 
       // Handle streaming response
       const chatResponse = await generateChatCompletion([
-        { role: "system", content: systemMessage },
+        { role: "system", content: messageContext },
         { role: "user", content: message }
       ]);
 
