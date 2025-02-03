@@ -12,11 +12,15 @@ import { Download } from 'lucide-react'
 import { useToast } from "@/components/ui/use-toast"
 import { generateChatCompletion } from "@/lib/openrouter"
 import { CrawlStatus } from "@/components/crawl-status"
+import { SYSTEM_PROMPTS } from '@/lib/constants'
+import { getRelevantContext, getSummaryContext, getDetailedMemoryBlock } from "@/lib/helpers"
 
 
 interface Message {
   role: "assistant" | "user"
   content: string
+  isStreaming?: boolean
+  id?: string
 }
 
 interface MemoryBlockData {
@@ -411,111 +415,80 @@ const singleMemoryBlock = [{
       return;
     }
   
+    // Add user message
     setMessages((prev) => [...prev, { role: "user", content: message }]);
+    
+    // Set loading state
     setIsLoading(true);
-  
+    
     try {
       const memoryBlock = memoryBlocks[0];
       if (!memoryBlock) throw new Error("No memory block available");
-  
+
       const parsedContent = JSON.parse(memoryBlock.content) as ParsedItem[];
       const queryClassification = classifyQuery(message);
-  
-      if (queryClassification.isSiteWide) {
-        // Handle site-wide queries
-        const siteStructure = extractSiteStructure(parsedContent);
-        const contextForModel = `Site Analysis:
-  Total URLs: ${siteStructure.totalUrls}
-  Unique URLs: ${siteStructure.uniqueUrls}
-  Main Sections: ${siteStructure.mainSections.join(', ')}
-  All URLs: ${siteStructure.urls.join('\n')}`;
-  
-        const response = await generateChatCompletion([
-          {
-            role: "system",
-            content: "You are a website analyzer. For site-wide queries, provide clear statistics and insights about the website structure. Be specific with numbers and patterns you observe."
-          },
-          {
-            role: "user",
-            content: `Site-wide query: "${message}"\n\n${contextForModel}`
-          }
-        ]);
-  
-        setMessages((prev) => [...prev, { role: "assistant", content: response }]);
-      } else if (queryClassification.isPageSpecific) {
-        // Handle page-specific queries
-        const intentTerms = await analyzeUserIntent(message);
-        console.log("Intent terms for page-specific query:", intentTerms);
-  
-        const urlMatches = parsedContent.filter(item => {
-          const urlLower = item.url.toLowerCase();
-          return intentTerms.some(term => urlLower.includes(term));
-        });
-  
-        if (urlMatches.length > 0) {
-          const relevantContent = urlMatches
-            .slice(0, 3)
-            .map(item => {
-              const urlPath = item.url.split('/').pop() || item.url;
-              const pageName = urlPath.replace(/[-_]/g, ' ').trim();
-              return `[Page: ${pageName}]\n${item.content}`;
-            })
-            .join('\n\n');
-  
-          const response = await generateChatCompletion([
-            {
-              role: "system",
-              content: "You are a webpage content analyzer. Focus on providing specific information from the matched pages, addressing exactly what was asked about the page."
-            },
-            {
-              role: "user",
-              content: `Page-specific query: "${message}"\n\nContent from matched pages:\n${relevantContent}`
-            }
-          ]);
-  
-          setMessages((prev) => [...prev, { role: "assistant", content: response }]);
-        } else {
-          // No specific page matches found
-          const response = await generateChatCompletion([
-            {
-              role: "system",
-              content: "You are a helpful assistant. When no specific page matches are found, provide a clear explanation and list available pages that might be relevant."
-            },
-            {
-              role: "user",
-              content: `No exact page matches found for: "${message}". Available sections: ${extractSiteStructure(parsedContent).mainSections.join(', ')}`
-            }
-          ]);
-  
-          setMessages((prev) => [...prev, { role: "assistant", content: response }]);
+      
+      // Generate unique ID for the new assistant message
+      const assistantMessageId = `msg_${Date.now()}`;
+
+      // Add initial assistant message with ID
+      setMessages((prev) => [
+        ...prev, 
+        { 
+          role: "assistant", 
+          content: "", 
+          isStreaming: true,
+          id: assistantMessageId
         }
-      } else {
-        // General query - use content similarity
-        const relevantContent = parsedContent
-          .slice(0, 3)
-          .map(item => item.content)
-          .join('\n\n');
-  
-        const response = await generateChatCompletion([
-          {
-            role: "system",
-            content: "You are a helpful assistant. For general queries, provide relevant information from the website content."
-          },
-          {
-            role: "user",
-            content: `General query: "${message}"\n\nWebsite content:\n${relevantContent}`
-          }
-        ]);
-  
-        setMessages((prev) => [...prev, { role: "assistant", content: response }]);
-      }
-  
+      ]);
+
+      // Prepare the system prompt using a predefined system message
+      const systemMessage = queryClassification.isSiteWide 
+        ? SYSTEM_PROMPTS.siteWide
+        : queryClassification.isPageSpecific
+        ? SYSTEM_PROMPTS.pageSpecific
+        : SYSTEM_PROMPTS.default;
+      
+      // Now pass the memoryBlocks array to extract context information
+      const summaryContext = getSummaryContext(memoryBlocks);
+      const detailedContext = getDetailedMemoryBlock(memoryBlocks);
+
+      // Combine contexts: if detailed context exists, put it first, then append summary context as a fallback.
+      const combinedContext = detailedContext ? `${detailedContext}\n\nAdditional Summary:\n${summaryContext}` : summaryContext;
+
+      const messageContext = `${systemMessage}\n\nContext:\n${combinedContext}`;
+
+      // Handle streaming response
+      const chatResponse = await generateChatCompletion([
+        { role: "system", content: messageContext },
+        { role: "user", content: message }
+      ]);
+
+      // Update the assistant message with the full response
+      setMessages((prev) => {
+        const messageIndex = prev.findIndex(msg => msg.id === assistantMessageId);
+        if (messageIndex > -1) {
+          const updated = [...prev];
+          updated[messageIndex] = {
+            ...updated[messageIndex],
+            content: chatResponse,
+            isStreaming: false,
+          };
+          return updated;
+        }
+        return prev;
+      });
+
       setAvailableTokens((prev) => prev - 2);
     } catch (error) {
       console.error("Error in chat:", error);
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: "I encountered an error while processing your request. Please try again." }
+        { 
+          role: "assistant", 
+          content: "I encountered an error while processing your request. Please try again.",
+          isStreaming: false
+        }
       ]);
     } finally {
       setIsLoading(false);
@@ -569,15 +542,14 @@ const singleMemoryBlock = [{
           </div>
           <div className="space-y-4">
             {memoryBlocks.length > 0 ? (
-              memoryBlocks.map((block, index) => (
+              memoryBlocks.map((block: MemoryBlockData, index: number) => (
                 <MemoryBlock
-                key={block.id || `block-${index}`}
-  url={block.title}
-  content={block.content}
-  isSelected={selectedBlocks.includes(block.id)}
-  onClick={() => handleBlockClick(block.id)}
-/>
-
+                  key={block.id || `block-${index}`}
+                  url={block.title}
+                  content={block.content}
+                  isSelected={selectedBlocks.includes(block.id)}
+                  onClick={() => handleBlockClick(block.id)}
+                />
               ))
             ) : (
               <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">

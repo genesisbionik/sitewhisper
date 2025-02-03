@@ -1,4 +1,4 @@
-import "@/styles/globals.css"
+import "./globals.css"
 import type { Metadata } from "next"
 
 import { siteConfig } from "@/config/site"
@@ -34,9 +34,13 @@ export default function RootLayout({ children }: RootLayoutProps) {
       <head />
       <body
         className={cn(
-          "min-h-screen bg-background font-sans antialiased",
+          "min-h-screen font-sans antialiased",
           fontSans.variable
         )}
+        style={{
+          backgroundColor: 'hsl(var(--background))',
+          color: 'hsl(var(--foreground))'
+        }}
       >
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <div className="relative flex min-h-screen flex-col">
@@ -48,7 +52,3 @@ export default function RootLayout({ children }: RootLayoutProps) {
     </html>
   )
 }
-
-
-
-import './globals.css'

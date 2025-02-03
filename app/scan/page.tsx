@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { ChatMessage } from "@/components/chat-message"
 import { MemoryBlock } from "@/components/memory-block"
@@ -19,6 +19,8 @@ interface MemoryBlockData {
   title: string
   content: string
   confidence: number
+  url?: string
+  isSelected?: boolean
 }
 
 // Mock user data - replace with actual authentication in a real app
@@ -42,6 +44,14 @@ export default function ScanPage() {
   const [memoryBlocks, setMemoryBlocks] = useState<MemoryBlockData[]>([])
   const [availableTokens, setAvailableTokens] = useState(user.availableTokens)
   const { toast } = useToast()
+
+  useEffect(() => {
+    console.log("Environment check:", {
+      hasDeepSeekKey: !!process.env.NEXT_PUBLIC_DEEPSEEK_API_KEY,
+      keyLength: process.env.NEXT_PUBLIC_DEEPSEEK_API_KEY?.length,
+      nodeEnv: process.env.NODE_ENV
+    });
+  }, []);
 
   const handleUrlSubmit = async (url: string) => {
     if (availableTokens < 10) {
@@ -86,7 +96,7 @@ export default function ScanPage() {
       ...prev,
       {
         role: "assistant",
-        content: `I've analyzed ${url} and created ${newMemoryBlocks.length} memory blocks. Each block contains structured information about different aspects of the website. You can now interact with this data or export it for further use.`,
+        content: newMemoryBlocks.map((block) => block.content).join('\n\n'),
       },
     ])
     setIsLoading(false)
@@ -150,7 +160,13 @@ export default function ScanPage() {
           </div>
           <div className="space-y-4">
             {memoryBlocks.map((block) => (
-              <MemoryBlock key={block.id} {...block} />
+              <MemoryBlock 
+                key={block.id} 
+                {...block} 
+                isSelected={false}
+                onClick={() => {}}
+                url=""
+              />
             ))}
             {memoryBlocks.length === 0 && (
               <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">

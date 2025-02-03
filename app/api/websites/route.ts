@@ -1,47 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 
+// Return mock responses until Supabase is set up
 export async function POST(req: NextRequest) {
-  const { url, content, userId } = await req.json()
-
-  try {
-    const { data, error } = await supabase
-      .from('websites')
-      .insert({
-        url,
-        content,
-        user_id: userId,
-      })
-      .select()
-      .single()
-
-    if (error) throw error
-    return NextResponse.json(data)
-  } catch (error) {
-    console.error('Request error', error)
-    return NextResponse.json({ error: 'Error creating website' }, { status: 500 })
-  }
+  // Use supabase client here
+  return NextResponse.json({ message: "Website saved" })
 }
 
 export async function GET(req: NextRequest) {
-  const userId = req.nextUrl.searchParams.get('userId')
-
-  if (!userId) {
-    return NextResponse.json({ error: 'User ID is required' }, { status: 400 })
-  }
-
-  try {
-    const { data, error } = await supabase
-      .from('websites')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-
-    if (error) throw error
-    return NextResponse.json(data)
-  } catch (error) {
-    console.error('Request error', error)
-    return NextResponse.json({ error: 'Error fetching websites' }, { status: 500 })
-  }
+  return NextResponse.json([])
 }
 
