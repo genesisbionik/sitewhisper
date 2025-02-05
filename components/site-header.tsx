@@ -6,7 +6,7 @@ import { useAuth } from "@/hooks/useAuth"
 import { UserAccountNav } from "@/components/user-account-nav"
 
 export function SiteHeader() {
-  const { user } = useAuth()
+  const { user, loading } = useAuth()
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -33,13 +33,24 @@ export function SiteHeader() {
             <Button variant="ghost" asChild>
               <Link href="/">Home</Link>
             </Button>
-            {user && (
+            {loading ? (
+              <p>Loading...</p>
+            ) : user ? (
               <>
                 <Button variant="ghost" asChild>
                   <Link href="/dashboard">Dashboard</Link>
                 </Button>
                 <Button variant="ghost" asChild>
                   <Link href="/tokens">Tokens</Link>
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="ghost" asChild>
+                  <Link href="/login">Login</Link>
+                </Button>
+                <Button variant="ghost" asChild>
+                  <Link href="/register">Register</Link>
                 </Button>
               </>
             )}
