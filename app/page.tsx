@@ -14,7 +14,8 @@ import { generateChatCompletion } from "@/lib/openrouter"
 import { CrawlStatus } from "@/components/crawl-status"
 import { SYSTEM_PROMPTS } from '@/lib/constants'
 import { getRelevantContext, getSummaryContext, getDetailedMemoryBlock } from "@/lib/helpers"
-import { SupabaseTest } from '@/components/supabase-test'
+import { useAuth } from "@/hooks/useAuth"
+import { saveMemoryBlock } from "@/lib/db"
 
 
 interface Message {
@@ -50,6 +51,7 @@ export default function HomePage() {
   const [isUrlSubmitting, setIsUrlSubmitting] = useState(false)
   const [selectedBlocks, setSelectedBlocks] = useState<string[]>([]);
   const { toast } = useToast()
+  const { user, loading } = useAuth();
 
   const handleBlockClick = (id: string) => {
     setSelectedBlocks((prev) =>
@@ -416,10 +418,8 @@ const singleMemoryBlock = [{
       return;
     }
   
-    // Add user message
+    // Add user message and set loading state
     setMessages((prev) => [...prev, { role: "user", content: message }]);
-    
-    // Set loading state
     setIsLoading(true);
     
     try {
@@ -443,29 +443,25 @@ const singleMemoryBlock = [{
         }
       ]);
 
-      // Prepare the system prompt using a predefined system message
+      // Prepare system prompt and extract context
       const systemMessage = queryClassification.isSiteWide 
         ? SYSTEM_PROMPTS.siteWide
         : queryClassification.isPageSpecific
-        ? SYSTEM_PROMPTS.pageSpecific
-        : SYSTEM_PROMPTS.default;
-      
-      // Now pass the memoryBlocks array to extract context information
+          ? SYSTEM_PROMPTS.pageSpecific
+          : SYSTEM_PROMPTS.default;
+
       const summaryContext = getSummaryContext(memoryBlocks);
       const detailedContext = getDetailedMemoryBlock(memoryBlocks);
-
-      // Combine contexts: if detailed context exists, put it first, then append summary context as a fallback.
       const combinedContext = detailedContext ? `${detailedContext}\n\nAdditional Summary:\n${summaryContext}` : summaryContext;
-
       const messageContext = `${systemMessage}\n\nContext:\n${combinedContext}`;
 
-      // Handle streaming response
+      // Get the generated response from OpenRouter
       const chatResponse = await generateChatCompletion([
         { role: "system", content: messageContext },
         { role: "user", content: message }
       ]);
 
-      // Update the assistant message with the full response
+      // Update assistant's message with completed content
       setMessages((prev) => {
         const messageIndex = prev.findIndex(msg => msg.id === assistantMessageId);
         if (messageIndex > -1) {
@@ -480,6 +476,27 @@ const singleMemoryBlock = [{
         return prev;
       });
 
+      // Save the resulting memory block into the database
+      if (user) {
+        try {
+          await saveMemoryBlock({
+            user_id: user.id, // Supabase user ID
+            website_id: undefined, // Provide a website id if available
+            name: `Crawl Result for ${message.slice(0, 20)}...`,
+            type: "crawl", // or "chat" as desired
+            status: "complete",
+            content: chatResponse,
+            metadata: { crawledAt: new Date().toISOString() }
+          });
+        } catch (dbError: any) {
+          toast({
+            title: "Error saving result",
+            description: dbError.message || "There was an error saving the memory block.",
+            variant: "destructive",
+          });
+        }
+      }
+      
       setAvailableTokens((prev) => prev - 2);
     } catch (error) {
       console.error("Error in chat:", error);
@@ -499,9 +516,16 @@ const singleMemoryBlock = [{
   const hasTokens = availableTokens > 0
   const showUpgrade = !hasTokens || availableTokens < 5
 
+  if (loading) {
+    return <div className="container mx-auto py-12"><p>Loading...</p></div>;
+  }
+
+  // Optional: display user info
+  const userGreeting = user ? <div className="mb-4 text-lg font-semibold">Welcome, {user.email}</div> : null;
+
   return (
     <div className="container mx-auto py-12">
-      <SupabaseTest />
+      {userGreeting}
       <div className="container mx-auto flex min-h-[calc(100vh-4rem)] flex-col gap-4 p-4 max-w-7xl">
         <div className="grid gap-4 lg:grid-cols-[2fr,1fr]">
           <div className="flex flex-col rounded-lg border bg-background shadow-sm">
