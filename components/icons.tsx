@@ -1,3 +1,5 @@
+"use client"
+
 import { Globe, Zap, Puzzle, Clock } from 'lucide-react'
 
 export const Icons = {
