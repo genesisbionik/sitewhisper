@@ -14,6 +14,7 @@ import { generateChatCompletion } from "@/lib/openrouter"
 import { CrawlStatus } from "@/components/crawl-status"
 import { SYSTEM_PROMPTS } from '@/lib/constants'
 import { getRelevantContext, getSummaryContext, getDetailedMemoryBlock } from "@/lib/helpers"
+import { SupabaseTest } from '@/components/supabase-test'
 
 
 interface Message {
@@ -499,63 +500,66 @@ const singleMemoryBlock = [{
   const showUpgrade = !hasTokens || availableTokens < 5
 
   return (
-    <div className="container mx-auto flex min-h-[calc(100vh-4rem)] flex-col gap-4 p-4 max-w-7xl">
-      <div className="grid gap-4 lg:grid-cols-[2fr,1fr]">
-        <div className="flex flex-col rounded-lg border bg-background shadow-sm">
-          <div className="flex flex-col gap-4 border-b p-4">
-            <UrlForm onSubmit={handleUrlSubmit} isLoading={isUrlSubmitting} />
-            <CrawlStatus 
-              isActive={isUrlSubmitting} 
-              message={isUrlSubmitting ? "Analyzing website content..." : undefined} 
-            />
+    <div className="container mx-auto py-12">
+      <SupabaseTest />
+      <div className="container mx-auto flex min-h-[calc(100vh-4rem)] flex-col gap-4 p-4 max-w-7xl">
+        <div className="grid gap-4 lg:grid-cols-[2fr,1fr]">
+          <div className="flex flex-col rounded-lg border bg-background shadow-sm">
+            <div className="flex flex-col gap-4 border-b p-4">
+              <UrlForm onSubmit={handleUrlSubmit} isLoading={isUrlSubmitting} />
+              <CrawlStatus 
+                isActive={isUrlSubmitting} 
+                message={isUrlSubmitting ? "Analyzing website content..." : undefined} 
+              />
+            </div>
+            <div className="flex-1 overflow-auto">
+              <div className="divide-y">
+                {messages.map((message, index) => (
+                  <ChatMessage key={index} {...message} />
+                ))}
+                {isLoading && (
+                  <ChatMessage
+                    role="assistant"
+                    content=""
+                    isLoading={true}
+                  />
+                )}
+              </div>
+            </div>
+            <ChatInput onSend={handleChat} disabled={!hasTokens || isLoading} />
           </div>
-          <div className="flex-1 overflow-auto">
-            <div className="divide-y">
-              {messages.map((message, index) => (
-                <ChatMessage key={index} {...message} />
-              ))}
-              {isLoading && (
-                <ChatMessage
-                  role="assistant"
-                  content=""
-                  isLoading={true}
-                />
+          <div className="flex flex-col gap-4">
+            <TokenStatus availableTokens={availableTokens} maxTokens={INITIAL_TOKENS} />
+            {showUpgrade && <UpgradeButton />}
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Whisper Memory</h2>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExport}
+                disabled={memoryBlocks.length === 0 || !hasTokens}
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Export
+              </Button>
+            </div>
+            <div className="space-y-4">
+              {memoryBlocks.length > 0 ? (
+                memoryBlocks.map((block: MemoryBlockData, index: number) => (
+                  <MemoryBlock
+                    key={block.id || `block-${index}`}
+                    url={block.title}
+                    content={block.content}
+                    isSelected={selectedBlocks.includes(block.id)}
+                    onClick={() => handleBlockClick(block.id)}
+                  />
+                ))
+              ) : (
+                <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+                  No Whisper memory blocks yet. Start by analyzing a website.
+                </div>
               )}
             </div>
-          </div>
-          <ChatInput onSend={handleChat} disabled={!hasTokens || isLoading} />
-        </div>
-        <div className="flex flex-col gap-4">
-          <TokenStatus availableTokens={availableTokens} maxTokens={INITIAL_TOKENS} />
-          {showUpgrade && <UpgradeButton />}
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Whisper Memory</h2>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleExport}
-              disabled={memoryBlocks.length === 0 || !hasTokens}
-            >
-              <Download className="mr-2 h-4 w-4" />
-              Export
-            </Button>
-          </div>
-          <div className="space-y-4">
-            {memoryBlocks.length > 0 ? (
-              memoryBlocks.map((block: MemoryBlockData, index: number) => (
-                <MemoryBlock
-                  key={block.id || `block-${index}`}
-                  url={block.title}
-                  content={block.content}
-                  isSelected={selectedBlocks.includes(block.id)}
-                  onClick={() => handleBlockClick(block.id)}
-                />
-              ))
-            ) : (
-              <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
-                No Whisper memory blocks yet. Start by analyzing a website.
-              </div>
-            )}
           </div>
         </div>
       </div>
