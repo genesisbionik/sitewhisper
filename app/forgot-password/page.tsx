@@ -2,61 +2,54 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { useToast } from "@/components/ui/use-toast"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { useToast } from "@/components/ui/use-toast"
 
-export default function LoginPage() {
+export default function ForgotPasswordPage() {
   const supabase = createClientComponentClient()
   const router = useRouter()
   const { toast } = useToast()
 
   const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault()
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
+    // Trigger the password reset email
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: "/login", // Customize the redirect URL as needed
     })
 
     if (error) {
       toast({
-        title: "Login Error",
+        title: "Reset Error",
         description: error.message,
         variant: "destructive",
       })
     } else {
-      // Redirect to a protected page after successful login
-      router.push("/dashboard")
+      toast({
+        title: "Reset Email Sent",
+        description: "Check your email for further instructions.",
+      })
+      router.push("/login")
     }
   }
 
   return (
     <div className="flex flex-col items-center justify-center h-screen">
-      <h1 className="text-xl font-bold mb-4">Login</h1>
-      <form onSubmit={handleLogin} className="flex flex-col gap-4">
+      <h1 className="text-xl font-bold mb-4">Forgot Password</h1>
+      <form onSubmit={handleResetPassword} className="flex flex-col gap-4">
         <input
           type="email"
-          placeholder="Email"
+          placeholder="Enter your email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           className="border p-2"
           required
         />
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="border p-2"
-          required
-        />
         <button type="submit" className="bg-primary text-primary-foreground p-2">
-          Login
+          Reset Password
         </button>
       </form>
     </div>
   )
-}
-
+} 
