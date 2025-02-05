@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import type { NextRequest } from 'next/server';
 import { createMiddlewareSupabaseClient } from "@supabase/auth-helpers-nextjs";
 
 // Add rate limiting configuration
@@ -8,7 +9,7 @@ const MAX_REQUESTS = 100; // Max requests per minute
 // Store for rate limiting (Note: In production, use Redis or similar)
 const rateLimit = new Map<string, { count: number; timestamp: number }>();
 
-export async function middleware(req: Request) {
+export async function middleware(req: NextRequest) {
   // Rate limiting check
   const ip = req.headers.get('x-forwarded-for') || 'unknown';
   const rateLimitKey = `rate-limit:${ip}`;
