@@ -25,7 +25,7 @@ export function UserAccountNav() {
         description: "You have been signed out of your account.",
       })
     } catch (error) {
-      console.error('Error signing out:', error)
+      console.error("Error signing out:", error)
       toast({
         title: "Sign out failed",
         description: "An error occurred while signing out. Please try again.",
@@ -55,9 +55,7 @@ export function UserAccountNav() {
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <div className="flex items-center justify-start gap-2 p-2">
           <div className="flex flex-col space-y-1 leading-none">
-            {user.email && (
-              <p className="font-medium">{user.email}</p>
-            )}
+            {user.email && <p className="font-medium">{user.email}</p>}
           </div>
         </div>
         <DropdownMenuSeparator />
