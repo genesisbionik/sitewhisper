@@ -35,11 +35,7 @@ export function UserAccountNav() {
   }
 
   if (!user) {
-    return (
-      <Button asChild variant="ghost">
-        <Link href="/login">Sign In</Link>
-      </Button>
-    )
+    return null
   }
 
   return (

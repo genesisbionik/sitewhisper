@@ -1,13 +1,17 @@
 "use client"
 
+// Page Label: Login Page 
+// Purpose: Allows users to log in using their email and password.
+// Reminder: Ensure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are set in your environment.
+
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/components/ui/use-toast"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import Link from "next/link"
+import { useAuth } from "@/hooks/useAuth"
 
 export default function LoginPage() {
-  const supabase = createClientComponentClient()
+  const { signIn } = useAuth()
   const router = useRouter()
   const { toast } = useToast()
 
@@ -18,20 +22,23 @@ export default function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
-
-    if (error) {
+    
+    try {
+      await signIn(email, password)
+      toast({
+        title: "Success",
+        description: "You have been logged in successfully.",
+      })
+      router.push("/dashboard")
+    } catch (error) {
+      console.error("Login error:", error)
       toast({
         title: "Login Error",
-        description: error.message,
+        description: error instanceof Error ? error.message : "Failed to login",
         variant: "destructive",
       })
+    } finally {
       setIsLoading(false)
-    } else {
-      router.push("/dashboard")
     }
   }
 
