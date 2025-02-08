@@ -21,4 +21,25 @@ export async function saveMemoryBlock(data: MemoryBlockInsertData) {
   }
 
   return result;
+}
+
+async function saveWhisperMemory(userId: string, websiteId: string | undefined, analysisContent: string) {
+  try {
+    // Construct the memory block payload
+    const memoryBlock = {
+      user_id: userId,
+      website_id: websiteId, // Pass undefined if not applicable
+      name: `Whisper Memory Block (${new Date().toLocaleString()})`,
+      type: "whisper",
+      status: "complete",
+      content: analysisContent,
+      metadata: { createdBy: "SiteWhisper", note: "Saved after website crawl" },
+    };
+
+    // Save the memory block in the database
+    const savedBlock = await saveMemoryBlock(memoryBlock);
+    console.log("Memory block saved successfully:", savedBlock);
+  } catch (error) {
+    console.error("Error saving Whisper memory block:", error);
+  }
 } 
