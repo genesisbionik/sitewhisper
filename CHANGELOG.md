@@ -67,4 +67,32 @@ This file tracks all changes made to the project, including the time the changes
 
 ---
 
+### [Unreleased] - YYYY-MM-DD
+
+#### Added
+- **Crawl Engine Integration:**
+  - Implemented a new background processing engine using WebSockets to deliver real-time crawl status updates.
+  - Exposed WebSocket events such as `CRAWL_STARTED`, `CRAWL_PROGRESS`, `WHISPER_BLOCK_CREATED`, `CRAWL_COMPLETED`, and `CRAWL_ERROR` for seamless event-driven notifications.
+  - Integrated a Bull job queue with Redis for scalable management of crawl tasks, including error handling and retry logic.
+
+- **UI Enhancements:**
+  - Introduced the `CrawlStatusDisplay` component to provide live feedback on website crawl operations, including progress, status messages, and error notifications.
+  - Improved WebSocket connection management with error handling and reconnection strategies.
+
+- **Backend Updates:**
+  - Updated the crawl API (`/api/crawl/route.ts`) to better transform responses from the Crawl4AI service and deliver structured results.
+  - Refactored the HomePage component to extract polling logic with exponential backoff and clearer status updates.
+
+- **Database Schema Enhancements:**
+  - Updated the database schema to store detailed WhisperBlock information, including progress, status, content, and metadata, to support the enhanced crawl engine.
+
+- **General Code Refactoring:**
+  - Modularized components and hooks for improved maintainability and separation of concerns.
+  - Enhanced error logging and handling across the application to support robust monitoring and troubleshooting.
+
+#### Notes
+- Further improvements may include dedicated monitoring tools, interactive analytic charts on the admin dashboard, and extended audit logging functionalities.
+
+---
+
 *Remember to update this file with every change to maintain a complete record of the project history.* 

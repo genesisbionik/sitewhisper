@@ -1,5 +1,5 @@
-import { EventEmitter } from 'events';
-import WebSocket, { Server as WebSocketServer } from 'ws';
+import { EventEmitter } from 'node:events';
+import { WebSocketServer, WebSocket } from 'ws';
 
 /**
  * WebSocket events for the Crawl Engine.
@@ -91,17 +91,16 @@ export class CrawlEngine extends EventEmitter {
  * This function should be called with your HTTP/HTTPS server.
  */
 export const setupWebSocketServer = (server: any) => {
-  // Create a WebSocket server using the provided HTTP/HTTPS server
   const wss = new WebSocketServer({ server });
   const crawlEngine = new CrawlEngine();
 
-  wss.on('connection', (ws: WebSocket) => {
+  wss.on('connection', (wsConnection: WebSocket) => {
     console.log("WebSocket client connected");
 
     // Helper function to broadcast an event to the connected client.
     const broadcastUpdate = (eventType: string, data: any) => {
       const message = JSON.stringify({ event: eventType, data });
-      ws.send(message);
+      wsConnection.send(message);
     };
 
     // Subscribe to CrawlEngine events and broadcast them
@@ -122,7 +121,7 @@ export const setupWebSocketServer = (server: any) => {
     });
 
     // Listen for a crawl request from the client. Expected format: { action: "start_crawl", url: "https://example.com" }
-    ws.on('message', (message) => {
+    wsConnection.on('message', (message) => {
       try {
         const parsed = JSON.parse(message.toString());
         if (parsed.action === "start_crawl" && parsed.url) {

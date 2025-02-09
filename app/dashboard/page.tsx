@@ -20,14 +20,15 @@ export default function DashboardPage() {
   const [isFetching, setIsFetching] = useState(false);
 
   useEffect(() => {
-    if (user) {
-      setIsFetching(true);
-      // Query memory blocks for current user
-      supabase
-        .from('memory_blocks')
-        .select('*')
-        .eq('user_id', user.id)
-        .then(({ data, error }) => {
+    const fetchData = async () => {
+      if (user) {
+        setIsFetching(true);
+        try {
+          const { data, error } = await supabase
+            .from('memory_blocks')
+            .select('*')
+            .eq('user_id', user.id);
+
           if (error) {
             toast({
               title: "Error loading memory blocks",
@@ -37,9 +38,15 @@ export default function DashboardPage() {
           } else if (data) {
             setBlocks(data as MemoryBlockData[]);
           }
-        })
-        .finally(() => setIsFetching(false));
-    }
+        } catch (error) {
+          console.error("Fetch error:", error);
+        } finally {
+          setIsFetching(false);
+        }
+      }
+    };
+
+    fetchData();
   }, [user, toast]);
 
   if (loading || isFetching) {

@@ -1,4 +1,13 @@
-import { supabase } from '@/lib/supabase';
+"use server"
+
+import { Pool } from 'pg';
+import { createClient } from '@supabase/supabase-js';
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
+
+export default pool;
 
 export interface MemoryBlockInsertData {
   website_id?: string;    // if applicable
@@ -11,10 +20,15 @@ export interface MemoryBlockInsertData {
 }
 
 export async function saveMemoryBlock(data: MemoryBlockInsertData) {
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+  
   const { error, data: result } = await supabase
     .from('memory_blocks')
     .insert([data])
-    .select()
+    .select();
   
   if (error) {
     throw new Error(error.message);
