@@ -19,7 +19,7 @@ This prompt is used to provide full context to the SiteWhisper AI system when a 
    - URL validation and token verification.
    - Checking user authentication status.
 2. **Analysis Pipeline:**
-   - Integration with Crawl4AI (or similar service) for deep website crawling.
+   - Integration with Crawl4AI (or similar service) for deep website crawling. This server is running on Crawl4Ai
    - Extraction and structuring of website data into "Whisper Memory Blocks."
 3. **Data Storage:**
    - For anonymous users: Temporary state management.
@@ -29,7 +29,7 @@ This prompt is used to provide full context to the SiteWhisper AI system when a 
    - Memory blocks available for export and further analysis.
 
 **Multi-Model AI Support:**
-- **Primary Model:** DeepSeek
+- **Primary Model:** DeepSeek, Claude, Mistral, Opensource MOdels 
 - **Alternative Models:**  
   - Anthropic's Claude  
   - Mistral
