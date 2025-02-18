@@ -22,7 +22,7 @@
       "@/*": ["./*"]
     },
     "typeRoots": ["./node_modules/@types", "./types"],
-    "types": ["node", "ioredis"]
+    "types": ["node"]
   },
   "include": [
     "types", 
