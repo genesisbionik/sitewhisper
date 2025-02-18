@@ -113,8 +113,32 @@ export const setupWebSocketServer = (server: any) => {
     crawlEngine.on(WS_EVENTS.WHISPER_BLOCK_CREATED, (data) => {
       broadcastUpdate(WS_EVENTS.WHISPER_BLOCK_CREATED, data);
     });
-    crawlEngine.on(WS_EVENTS.CRAWL_COMPLETED, (data) => {
+    crawlEngine.on(WS_EVENTS.CRAWL_COMPLETED, async (data) => {
       broadcastUpdate(WS_EVENTS.CRAWL_COMPLETED, data);
+      
+      console.log('Crawl completed, saving memory block', data);
+      
+      // Assume you have a way to get the current logged in user and session id.
+      const loggedInUser = /* your logic to get the user */;
+      const currentSessionId = /* your session id logic */;
+      
+      if (loggedInUser) {
+        try {
+          const res = await fetch('/api/memory-blocks', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              user_id: loggedInUser.id,
+              session_id: currentSessionId,
+              crawlResults: data
+            })
+          });
+          const json = await res.json();
+          console.log('Memory block saved:', json);
+        } catch (error) {
+          console.error('Error saving memory block:', error);
+        }
+      }
     });
     crawlEngine.on(WS_EVENTS.CRAWL_ERROR, (data) => {
       broadcastUpdate(WS_EVENTS.CRAWL_ERROR, data);
