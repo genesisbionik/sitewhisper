@@ -118,9 +118,9 @@ export const setupWebSocketServer = (server: any) => {
       
       console.log('Crawl completed, saving memory block', data);
       
-      // Assume you have a way to get the current logged in user and session id.
-      const loggedInUser = /* your logic to get the user */;
-      const currentSessionId = /* your session id logic */;
+      // Temporary stub values. Replace these with your actual user/session retrieval logic:
+      const loggedInUser = { id: "dummy-user" }; // Example: get the logged-in user details from your auth context
+      const currentSessionId = "session-dummy"; // Example: generate or retrieve a session ID
       
       if (loggedInUser) {
         try {
@@ -130,8 +130,8 @@ export const setupWebSocketServer = (server: any) => {
             body: JSON.stringify({
               user_id: loggedInUser.id,
               session_id: currentSessionId,
-              crawlResults: data
-            })
+              crawlResults: data,
+            }),
           });
           const json = await res.json();
           console.log('Memory block saved:', json);
