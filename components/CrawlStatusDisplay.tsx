@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import BrowserPreview from "./BrowserPreview";
 
 interface WebSocketMessage {
   event: string;
@@ -13,7 +14,13 @@ interface WebSocketMessage {
   };
 }
 
-export default function CrawlStatusDisplay() {
+interface CrawlStatusDisplayProps {
+  currentUrl: string;
+  loading: boolean;
+  screenshot?: string;
+}
+
+export default function CrawlStatusDisplay({ currentUrl, loading, screenshot }: CrawlStatusDisplayProps) {
   const [messages, setMessages] = useState<WebSocketMessage[]>([]);
   const [connectionError, setConnectionError] = useState<string | null>(null);
 
@@ -46,11 +53,13 @@ export default function CrawlStatusDisplay() {
   }, []);
 
   return (
-    <div className="p-4 bg-gray-50 border rounded">
+    <div className="p-4">
+      <h2 className="text-lg font-bold mb-2">Live Crawl Preview</h2>
+      <BrowserPreview url={currentUrl} loading={loading} screenshot={screenshot} />
       {connectionError && (
-        <div className="text-red-600 mb-2">{connectionError}</div>
+        <div className="text-red-600 mt-2">{connectionError}</div>
       )}
-      <h2 className="text-xl font-bold mb-4">Crawl Status Updates</h2>
+      <h2 className="text-xl font-bold mt-4 mb-4">Crawl Status Updates</h2>
       <ul className="space-y-2">
         {messages.map((msg, index) => (
           <li key={index} className="p-2 border rounded">
