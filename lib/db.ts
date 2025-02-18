@@ -10,8 +10,8 @@ const pool = new Pool({
 export default pool;
 
 export interface MemoryBlockInsertData {
-  website_id?: string;    // if applicable
   user_id: string;
+  website_id?: string;
   name: string;
   type: string;
   status: string;
